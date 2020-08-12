@@ -83,17 +83,17 @@ for OD, n in zip(tube_OD, tube_name):
 ID_all combines the ID2 diameters with the known inner diameters of schedule 10 pipes.
 '''
 
-Gas = pd.DataFrame([OD_name + pipe_name, gauge_name + pipe_name, tube_ID+pipe_ID, OD_all+pipe_OD], 
-            index = ['Gas Name','Gauge', 'ID_gas', 'OD_gas']).T
-LBE = pd.DataFrame([OD_name + pipe_name, gauge_name + pipe_name, tube_ID+pipe_ID, OD_all+pipe_OD], index = ['Name','Gauge','ID_Pb', 'OD_Pb']).T
+Gas = pd.DataFrame([OD_name + pipe_name, gauge_name + pipe_name, OD_all+pipe_OD, tube_ID+pipe_ID], 
+            index = ['Gas Name','Gauge', 'OD_gas', 'ID_gas']).T
+LBE = pd.DataFrame([OD_name + pipe_name, gauge_name + pipe_name, tube_ID+pipe_ID, OD_all+pipe_OD], index = ['Pb Name','Pb Gauge','ID_Pb', 'OD_Pb']).T
 
 
-Gas = Gas[Gas.OD_gas != 0.00635].reset_index()
-LBE = LBE[LBE.OD_Pb != 0.13335].reset_index()
+#Gas = Gas[Gas.OD_gas != 0.00635].reset_index()
+#LBE = LBE[LBE.OD_Pb != 0.13335].reset_index()
 
 df = pd.DataFrame([tube_OD + pipe_OD, tube_name+pipe_name]).T
 
-for i, k  in zip(df[0], df[1]):
+for i, k, j  in zip(LBE['OD_Pb'], LBE['Pb Name'], LBE['ID_Pb']):
     gas_gap = (Gas['ID_gas'] - i)/2
     gap.append(gas_gap)
     length = np.ones(len(Gas['ID_gas']))
@@ -102,15 +102,15 @@ for i, k  in zip(df[0], df[1]):
     name.append(x)
     OD_Pb.append(dia)
     ID_gas.append(Gas)
-    Pb_data.append(LBE)
+    Pb_data.append([j]*len(Gas['ID_gas']))
 
 gap_calc = pd.DataFrame(np.concatenate(gap), columns = ['GasGap'])
-OD_lbe = pd.DataFrame(np.concatenate(OD_Pb),columns = ['OD_LBE'])
+OD_lbe = pd.DataFrame(np.concatenate(OD_Pb),columns = ['OD_Pb'])
 name_pb = pd.DataFrame(np.concatenate(name), columns = ['LBE Name'])
 ID_info = pd.concat(ID_gas, ignore_index = True)
-Pb_info = pd.concat(Pb_data, ignore_index = True)
+Pb_info = pd.DataFrame(np.concatenate(Pb_data), columns = ['ID_Pb'])
 
-Final = pd.concat([ID_info, gap_calc, OD_lbe, name_pb], axis = 1)
+Final = pd.concat([ID_info, gap_calc, OD_lbe, Pb_info, name_pb], axis = 1)
 
 #gas gap options
 Final = Final[Final.GasGap >= 0.0002]
@@ -118,45 +118,28 @@ Final = Final[Final.GasGap <= 0.00026]
 
 Total = pd.DataFrame([OD_name+pipe_name, OD_all+pipe_OD, tube_ID+pipe_ID, gauge_name + pipe_name],
                      index =  ['Name', 'Outer', 'Inner', 'Gauge']).T
-print(Final)
+ 
 #gas gap names
 
-
-
-'''
-OD1 are all the possible outer diameters of the LBE pipe that must be subtracted and halved 
-with the ID2 from above to calculate the possible gas gap. 
-
-for OD in Outer_all:
-    gap = (ID_all - j)/2
-    gapgas.append(gap)
-    
-    #to make the array correct
-    length = np.ones(len(ID_all))
-    dia = j*length
-
-    LBE_o.append(dia)
-    gas_inner.append(ID_all)
-    #gas_outer.append(OD)
-    OD2_all.append(Gauge_all)
-    OD2_try.append(Outer_all)
-'''
-
 def area_calcs(ID_pb, OD_pb, ID_gas, OD_gas, ID_w):
-    for H2O_ID in ID_w:
-        H2O_ID - OD_gas
     T_1 = (OD_pb - ID_pb)/2
     T_2 = (OD_gas - ID_gas)/2
     A_pb = math.pi*(ID_pb/2)**2
-    #A_water = math.pi*((ID_w/2)**2-(OD_gas/2)**2)
+    A_water = math.pi*((ID_w/2)**2-(OD_gas/2)**2)
     Dh_pb = ID_pb
-    #Dh_w = ID_w - OD_gas
+    Dh_w = ID_w - OD_gas
     Dc = (ID_gas+OD_pb)/2
-    print(A_pb)
-    return T_1, T_2, A_pb, Dh_pb, Dc
-H2O_d = []
 
-#print(Final['ID_gas']
+    return T_1, T_2, A_pb, A_water, Dh_pb, Dc, Dh_w
+H2O_d = []
+'''
+for m, t in zip(Final['OD_Pb'], Final['LBE Name']):
+    Pb_d = Total.loc[Total['Outer']==m]
+    Pb_d1.append(Pb_d.loc[Total['Name']==t])
+Pb_df = pd.concat(Pb_d1)
+'''
+
+
 for H2O_ID, w_name in zip(Total['Inner'], Total['Name']):
     W_gap.append((H2O_ID - Final['OD_gas'])/2)
     l = [w_name]*len(Final['OD_gas'])
@@ -170,15 +153,7 @@ h2o = pd.DataFrame([np.concatenate(W_gap), np.concatenate(H2O_name), np.concaten
 last = pd.concat([h2o, pd.concat(combo, ignore_index=True)], axis = 1)
 
 last = last.loc[last['ID_w']> last['OD_gas']]
-
-
-for m, t in zip(Final['OD_LBE'], Final['LBE Name']):
-    Pb_d = Total.loc[Total['Outer']==m]
-    Pb_d1.append(Pb_d.loc[Total['Name']==t])
-Pb_df = pd.concat(Pb_d1)
-    #print(Gas_d)
-#print(Total.loc[Total['Name']=='T-1.125'])
-
+'''
 #gas gap names
 for m1, t1 in zip(Final['Gas Name'], Final['Gauge']):
     Gas_d = Total.loc[Total['Name']==m1]
@@ -186,7 +161,14 @@ for m1, t1 in zip(Final['Gas Name'], Final['Gauge']):
 
     #print(Gas_d)
 Gas_df = pd.concat(Gas_d1)
+'''
 print(last)
-#area_calcs((Pb_df)['Inner'].values, (Pb_df)['Outer'].values, Final['ID_gas'].values, Final['OD_gas'].values, Total['Inner'].values)
+T_1, T_2, A_pb, A_water, Dh_pb, Dc, Dh_w = area_calcs(last['ID_Pb'].values, 
+                last['OD_Pb'].values, last['ID_gas'].values, last['OD_gas'].values, last['ID_w'].values)
 
-#Testing
+
+dia = pd.DataFrame([T_1, T_2, A_pb, A_water]).T
+
+
+
+
