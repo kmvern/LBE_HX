@@ -126,11 +126,10 @@ def area_calcs(ID_pb, OD_pb, ID_gas, OD_gas, ID_w):
     T_2 = (OD_gas - ID_gas)/2
     A_pb = math.pi*(ID_pb/2)**2
     A_water = math.pi*((ID_w/2)**2-(OD_gas/2)**2)
-    Dh_pb = ID_pb
     Dh_w = ID_w - OD_gas
     Dc = (ID_gas+OD_pb)/2
 
-    return T_1, T_2, A_pb, A_water, Dh_pb, Dc, Dh_w
+    return T_1, T_2, A_pb, A_water, Dc, Dh_w
 H2O_d = []
 '''
 for m, t in zip(Final['OD_Pb'], Final['LBE Name']):
@@ -153,8 +152,9 @@ h2o = pd.DataFrame([np.concatenate(W_gap), np.concatenate(H2O_name), np.concaten
 last = pd.concat([h2o, pd.concat(combo, ignore_index=True)], axis = 1)
 
 last = last.loc[last['ID_w']> last['OD_gas']]
+last = last.loc[last['ID_Pb']>0.04]
 '''
-#gas gap names
+#gas gap name
 for m1, t1 in zip(Final['Gas Name'], Final['Gauge']):
     Gas_d = Total.loc[Total['Name']==m1]
     Gas_d1.append(Gas_d.loc[Total['Gauge']==t1])
@@ -162,13 +162,78 @@ for m1, t1 in zip(Final['Gas Name'], Final['Gauge']):
     #print(Gas_d)
 Gas_df = pd.concat(Gas_d1)
 '''
-print(last)
-T_1, T_2, A_pb, A_water, Dh_pb, Dc, Dh_w = area_calcs(last['ID_Pb'].values, 
-                last['OD_Pb'].values, last['ID_gas'].values, last['OD_gas'].values, last['ID_w'].values)
+#print(last)
+T_1, T_2, Area_pb, A_water, Dc, Dh_w = area_calcs(last['ID_Pb'], 
+                last['OD_Pb'], last['ID_gas'], last['OD_gas'], last['ID_w'])
 
+areas = (pd.concat([T_1, T_2, Area_pb, A_water, Dc, Dh_w], axis=1)).rename(columns={0:'T1', 1:'T2', 'ID_Pb':'A_Pb',
+                                                                 2:'A_water', 3:'Dc', 4:'Dh_w'})
+last = pd.concat([last, areas], axis = 1)
 
-dia = pd.DataFrame([T_1, T_2, A_pb, A_water]).T
+def delta_T(MFR, T_hout, Q_required, T_roomtemp, delta_Tcold):
+    cp_hot = 164.8-3.94E-2*T_hout+1.25E-5*T_hout**2-4.56E5*T_hout**-2
+    delta_Thot = Q_required/(cp_hot*MFR)
+    
+    #final temps
+    T_hin = T_hout + delta_Thot
+    T_cin = T_roomtemp+273 #K
 
+    T_cout = T_cin + delta_Tcold
 
+    
+
+    return delta_Thot, T_hin, T_cin, T_cout
+
+def thermo_prop(T):
+    #calculations of thermophysical props
+    #LBE
+    rho_hot = -1.2046*T + 10989 #kg/cm^3
+    cp_hot = 164.8-3.94E-2*T+1.25E-5*T**2-4.56E5*T**-2
+    k_hot = 3.284 + 1.612E-2*T - 2.305E-6*T**2 #thermal conductivity
+    DV_hot = 4.94E-4*math.exp(754.1/T) #dynamic viscosity
+    KV_hot = DV_hot/rho_hot
+    return rho_hot, cp_hot, k_hot, DV_hot, KV_hot
+
+#dia = pd.concat([last, Dh_pb], axis =1)
+
+#find delta T
+LBE_MFR = 26.7 #kg/s
+T_hout = 200+273 #K
+T_cin = 20 #C
+Q_req = 100E3 #W
+delta_Tcold = 10 #K
+delta_Thot, T_hin, T_cin, T_cout = delta_T(LBE_MFR, T_hout, Q_req, T_cin, delta_Tcold)
+
+print('The required temperature decrease is approximatly', delta_Thot)
+
+T_avg = (T_hin + T_hout)/2
+
+rho_hot, cp_hot, k_hot, DV_hot, KV_hot = thermo_prop(T_avg)
+
+#H2O
+rho_cold = 1000 #kg/cm^3
+cp_cold = 4180 #specific heat water J/kg K
+k_cold = 0.60694 #thermal conductivity
+DV_cold = 0.00089313 #dynamic viscosity
+KV_cold = DV_cold/rho_cold
+
+#required water mass flow rate
+
+w_MFR = Q_req/(cp_cold*delta_Tcold)
+print('The required mass flow rate of water is ', w_MFR)
+
+def MFR(density, area, velocity):
+    MFR = density*area*velocity 
+    return MFR
+def velocity(density, AWater, mfr):
+    velocity = mfr/(density*AWater)
+    return velocity
+
+LBE_V = 1 #m/s
+max_h2oV = 3 #m/s
+H2O_V = velocity(rho_cold, A_water, w_MFR)
+MFR= MFR(rho_hot, Area_pb, LBE_V)
+last = pd.concat([last, H2O_V], axis = 1).rename(columns={0:'W_velocity'})
+last = last.loc[last['W_velocity']<max_h2oV]
 
 
