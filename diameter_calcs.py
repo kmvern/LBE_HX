@@ -152,7 +152,7 @@ h2o = pd.DataFrame([np.concatenate(W_gap), np.concatenate(H2O_name), np.concaten
 last = pd.concat([h2o, pd.concat(combo, ignore_index=True)], axis = 1)
 
 last = last.loc[last['ID_w']> last['OD_gas']]
-last = last.loc[last['ID_Pb']>0.04]
+#last = last.loc[last['ID_Pb']>0.04]
 '''
 #gas gap name
 for m1, t1 in zip(Final['Gas Name'], Final['Gauge']):
@@ -228,12 +228,148 @@ def MFR(density, area, velocity):
 def velocity(density, AWater, mfr):
     velocity = mfr/(density*AWater)
     return velocity
+def LMTD(T_hotin, T_hotout, T_coldin, T_coldout):
+    ΔT_1=T_hotin-T_coldout
+    ΔT_2=T_hotout-T_coldin
+    ΔT_log=(ΔT_1-ΔT_2)/np.log((ΔT_1)/(ΔT_2))
+    
+    return ΔT_log
+
+
 
 LBE_V = 1 #m/s
 max_h2oV = 3 #m/s
 H2O_V = velocity(rho_cold, A_water, w_MFR)
 MFR= MFR(rho_hot, Area_pb, LBE_V)
 last = pd.concat([last, H2O_V], axis = 1).rename(columns={0:'W_velocity'})
-last = last.loc[last['W_velocity']<max_h2oV]
+#last = last.loc[last['W_velocity']<max_h2oV]
+
+#heat capacity 
+C_LBE = cp_hot*MFR
+C_w = cp_cold*w_MFR
+
+    
+T_cout = (C_LBE/C_w)*(T_hin-T_hout)+T_cin
+Q_hot = C_LBE*(T_hin - T_hout)
+Q_cold = C_w*(T_cout - T_cin)
 
 
+#Reynolds number
+Rey_LBE = LBE_V*(last['ID_Pb']/KV_hot)
+Rey_w = last['W_velocity']*(last['Dh_w']/KV_cold)
+
+#Prandtl number 
+Pr_LBE = cp_hot*DV_hot/k_hot
+Pr_w = cp_cold*DV_cold/k_cold
+
+#Peclet number
+Pe_LBE = Rey_LBE * Pr_LBE
+
+#Nusselt
+Nu_LBE = 5 + 0.025*Pe_LBE**0.8
+Nu_w = 0.023 * (Rey_w**0.8)*(Pr_w**0.33)
+
+#heat transfer W/m^2 K) 
+h_hot = Nu_LBE*(k_hot/last['ID_Pb'])
+h_cold = Nu_w*(k_cold/last['Dh_w'])
+#pipe thermal conductivities W/m K
+k_316 = 15 
+k_He = 0.189
+k_Ar = 0.0335 
+
+U=1/(1/h_hot +last['T1']/k_316 +last['GasGap']/k_He +last['T2']/k_316 +1/h_cold)
+U = pd.DataFrame(U)
+#LMTD method
+
+LMTD = LMTD(T_hin, T_hout, T_cin, T_cout)
+
+Ac_LMTD = Q_hot/(U*LMTD)
+Lc_LMTD = Ac_LMTD/(math.pi*last['Dc'])
+#C_w = rho_cold*A_water*H2O_V*cp_cold
+
+#e-NTU method
+
+
+Min=[]
+Max= []
+Eff = []
+
+
+for h in C_LBE:
+    if h < C_w:
+        C_min = h
+        C_max = C_w
+        e = ((T_hin-T_hout)/(T_hin-T_cin))
+        Eff.append(e)
+        
+    else:
+        C_min = C_w
+        C_max = h
+        Eff = (T_cout-T_cin)/(T_hin-T_cin)
+    Min.append(C_min)
+    Max.append(C_max)
+    
+C_min = pd.DataFrame(np.concatenate([Min]))
+C_max = pd.DataFrame(np.concatenate([Max]))
+e = pd.DataFrame(np.concatenate([Eff]))
+
+
+  
+C_ratio = C_min/C_max
+    
+#NTU calculations
+def interp_NTU(e_new, C_new):
+    data = pd.DataFrame(np.array([[0, 0, 0, 0, 0, 0], 
+         [0.25, 0.221, 0.216, 0.21, 0.206, 0.205],
+         [0.5, 0.393, 0.378, 0.362, 0.35, 0.348],
+         [0.75, 0.528, 0.502, 0.477, 0.457, 0.452],
+         [1, 0.632, 0.598, 0.565, 0.538, 0.532],
+         [1.25, 0.713, 0.675, 0.635, 0.603, 0.595],
+         [1.5, 0.777, 0.735, 0.691, 0.655, 0.645]]),
+        index = [0, 0.25, 0.5, 0.75, 1, 1.25,
+        1.5], columns = ['NTU', 0, 0.25, 0.5, 0.7, 0.75])
+    index = [0, 0.25, 0.5, 0.7, 0.75]
+
+    
+    lower_c = max([t for t in index if t < C_new])
+
+
+    higher_c = min([t for t in index if t > C_new])
+
+    lower_e1 = max([t for t in data[lower_c] if t < e_new])
+
+    higher_e1 = min([t for t in data[lower_c] if t > e_new])
+    
+    lower_e2 = max([t for t in data[higher_c] if t < e_new])
+    higher_e2 = min([t for t in data[higher_c] if t > e_new])
+
+    #calc the interpolated e's
+    x1 = [lower_e1, lower_e2]
+    x2 = [higher_e1, higher_e2]
+    C = [lower_c, higher_c]
+    e_new_low = np.interp(C_new, C, x1)
+    e_new_high = np.interp(C_new, C, x2)
+    
+    
+    #calc interpolated NTU
+    lower_NTU = float(data['NTU'][data[lower_c] == lower_e2])
+    higher_NTU = float(data['NTU'][data[higher_c] == higher_e2])
+    
+    x3 = [lower_NTU, higher_NTU]
+    e = [e_new_low, e_new_high]
+    NTU = np.interp(e_new, e, x3)
+
+
+        
+    return NTU
+
+NTU =[]
+for ti, tu in zip(C_ratio[0], e[0]):
+    
+    NTU.append(interp_NTU(tu, ti))
+NTU_e = pd.DataFrame(np.concatenate([NTU]))
+
+Ac = (NTU_e*C_min)/U
+print(Ac)
+    
+    
