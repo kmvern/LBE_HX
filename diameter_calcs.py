@@ -153,6 +153,7 @@ last = pd.concat([h2o, pd.concat(combo, ignore_index=True)], axis = 1)
 
 last = last.loc[last['ID_w']> last['OD_gas']]
 #last = last.loc[last['ID_Pb']>0.04]
+
 '''
 #gas gap name
 for m1, t1 in zip(Final['Gas Name'], Final['Gauge']):
@@ -169,6 +170,7 @@ T_1, T_2, Area_pb, A_water, Dc, Dh_w = area_calcs(last['ID_Pb'],
 areas = (pd.concat([T_1, T_2, Area_pb, A_water, Dc, Dh_w], axis=1)).rename(columns={0:'T1', 1:'T2', 'ID_Pb':'A_Pb',
                                                                  2:'A_water', 3:'Dc', 4:'Dh_w'})
 last = pd.concat([last, areas], axis = 1)
+
 
 def delta_T(MFR, T_hout, Q_required, T_roomtemp, delta_Tcold):
     cp_hot = 164.8-3.94E-2*T_hout+1.25E-5*T_hout**2-4.56E5*T_hout**-2
@@ -278,7 +280,7 @@ k_He = 0.189
 k_Ar = 0.0335 
 
 U=1/(1/h_hot +last['T1']/k_316 +last['GasGap']/k_He +last['T2']/k_316 +1/h_cold)
-U = pd.DataFrame(U)
+#U = pd.DataFrame(U)
 #LMTD method
 
 LMTD = LMTD(T_hin, T_hout, T_cin, T_cout)
@@ -286,6 +288,7 @@ LMTD = LMTD(T_hin, T_hout, T_cin, T_cout)
 Ac_LMTD = Q_hot/(U*LMTD)
 Lc_LMTD = Ac_LMTD/(math.pi*last['Dc'])
 #C_w = rho_cold*A_water*H2O_V*cp_cold
+one_M = max((last['Dc']*math.pi)*U*LMTD)
 
 #e-NTU method
 
@@ -368,8 +371,24 @@ for ti, tu in zip(C_ratio[0], e[0]):
     
     NTU.append(interp_NTU(tu, ti))
 NTU_e = pd.DataFrame(np.concatenate([NTU]))
+U1 = pd.concat([U], ignore_index = True)
+Ac_NTU = (NTU_e*C_min)/U1
+Dc = pd.DataFrame(last['Dc'].reset_index(drop=True))
+Lc_NTU = Ac_NTU[0]/(math.pi*Dc['Dc'])
+print(min(Lc_NTU))
+print(Lc_LMTD)
 
-Ac = (NTU_e*C_min)/U
-print(Ac)
     
-    
+lengths_and_dia = pd.concat([last.reset_index(drop=True), Lc_LMTD.reset_index(drop=True), Lc_NTU], axis=1)
+
+#for U-tube calculations
+R = (T_cin - T_cout)/(T_hout - T_hin)
+S = (T_hout- T_hin)/(T_cin - T_hin)
+Fg = (((R**2 + 1)**0.5)*np.log((1-S)/(1-R*S)))/((R-1)*np.log(2-S*(R+1-(R**2+1)**0.5)/(2-S*(R+1+np.sqrt(R**2+1)))))
+
+
+U_Ubend=1/(1/h_hot +last['T1']/k_316 +1/h_cold)
+U_Ac_LMTD = Q_hot/(U_Ubend*LMTD*Fg)
+U_Lc_LMTD = U_Ac_LMTD/(math.pi*last['Dc'])
+
+
