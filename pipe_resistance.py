@@ -23,7 +23,7 @@ OD_gas = design['OD_gas']
 ID_w = design['ID_w']
 OD_w = design['ID_w']-2*design['T_w']
 MFR = design['LBE_mass_flow']
-length = 0.01#design['L_LMTD']
+length = design['L_LMTD']
 
 #temperatures
 T_hout = 200+273 #K
@@ -79,8 +79,10 @@ R_w_pipe = pipe_resist(ID_w, OD_w, k_316, length)
 
 
 R_total = Pb_conv + H2O_conv + R_Pb_pipe + R_gas + R_gas_pipe# + R_w_pipe
-Q_pipe = (T_hin - T_cout)/R_total #Watts
 
+Q_pipe = (T_hin - T_cout)/R_total #Watts
+U = 1/R_total
+print(U)
 
 #temperatures across the pipes 
 Pb_temp = Q_pipe*R_Pb_pipe

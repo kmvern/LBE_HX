@@ -190,12 +190,13 @@ for h in C_LBE[0]:
         C_min = h
         C_max = C_w
         e = ((T_hin-T_hout)/(T_hin-T_cin))
-        Eff.append(e)
+        
         
     else:
         C_min = C_w
         C_max = h
-        Eff = (T_cout-T_cin)/(T_hin-T_cin)
+        e = (T_cout-T_cin)/(T_hin-T_cin)
+    Eff.append(e)
     Min.append(C_min)
     Max.append(C_max)
     
