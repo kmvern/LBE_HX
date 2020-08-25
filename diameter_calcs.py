@@ -262,28 +262,5 @@ print(last['Lc_NTU'])
 print(last['Lc_LMTD'])
 
 one_meter = one_meter[one_meter['HL_oneM'] < 9][one_meter['H2O_V'] < 5][one_meter['A_water']<0.0005]
-
-'''
-onemeter = pd.concat([last.reset_index(drop=True), one_M, Q_NTU_one, HL_oneM, HL_oneM_w], axis = 1).rename(columns=
-                                                                                      {1:'Head_loss_w'})
-onemeter = onemeter[onemeter.Head_loss_w < 9][onemeter.LBE_mass_flow < 25]
-onemeter = onemeter[onemeter.Q_NTU == max(onemeter['Q_NTU'])]
-#onemeter = onemeter[2003:2004] 
-lengths_and_dia.to_csv(r'original_HX.csv')
-onemeter.to_csv(r'onemeter.csv')
-
-
-#for U-tube calculations
-R = (T_cin - T_cout)/(T_hout - T_hin)
-S = (T_hout- T_hin)/(T_cin - T_hin)
-Fg = (((R**2 + 1)**0.5)*np.log((1-S)/(1-R*S)))/((R-1)*np.log(2-S*(R+1-(R**2+1)**0.5)/(2-S*(R+1+np.sqrt(R**2+1)))))
-
-
-U_Ubend=pd.DataFrame(1/(1/h_hot +last['T1']/k_316 +1/h_cold))
-U_Ac_LMTD = Q_hot.reset_index(drop=True)/(U_Ubend.reset_index(drop=True)*LMTD*Fg.reset_index(drop=True))
-U_Lc_LMTD = U_Ac_LMTD[0]/(math.pi*Dc['Dc'])
-Ubend = pd.concat([last.reset_index(drop=True), U_Ac_LMTD, U_Lc_LMTD], axis =1).rename(columns = {0:'Q_U', 1:'Ac_U', 2:'L_U'})
-Ubend = U_Ac_LMTD*U_Ubend.reset_index(drop=True)*LMTD*Fg.reset_index(drop=True)
-
-'''
-
+last.to_csv(r'original_HX.csv')
+one_meter.to_csv(r'onemeter.csv')

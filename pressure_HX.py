@@ -271,6 +271,8 @@ last = last[last['P_water'] == min(last['P_water'])]
 
 print(last['Lc_NTU'])
 print(last['Lc_LMTD'])
+
+last.to_csv(r'pressure_HX.csv')
 '''
 lengths_and_dia = lengths_and_dia[lengths_and_dia.L_LMTD == min(lengths_and_dia['L_LMTD'])]
 onemeter = pd.concat([last.reset_index(drop=True), one_M, Q_NTU_one, HL_oneM, HL_oneM_w], axis = 1).rename(columns=
