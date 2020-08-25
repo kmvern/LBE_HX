@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 """
 Created on Fri Aug 21 11:44:08 2020
-
 @author: kelleyverner
 """
 
@@ -59,8 +58,8 @@ Water, LBE, Total = tube_geometry.inner_dia(tube_OD, tube_name, tube_thickness, 
                                    pipe_name, pipe_ID, pipe_OD)
 
 Final = tube_geometry.gas_gap_calcs(Water, LBE).rename(columns = {'OD_gas':'OD_w', 'ID_gas':'ID_w', 'GasGap':'WaterGap'})
- 
- 
+
+
 #This is the final collection of the diameters and velocity
 last = Final.loc[Final['ID_w']> Final['OD_Pb']]
 last = last.loc[last['ID_Pb']>0]
@@ -85,9 +84,6 @@ areas = (pd.concat([T_1, T_2, Area_pb, A_water, Dc, Dh_w],
                                             2:'A_water', 'OD_Pb':'Dc', 3:'Dh_w'})
 last = pd.concat([last, areas], axis = 1)
 
-
-
-#dia = pd.concat([last, Dh_pb], axis =1)
 
 #find delta T
 LBE_MFR = 26.7 #kg/s
@@ -126,13 +122,14 @@ def T_Log(T_hotin, T_hotout, T_coldin, T_coldout):
     ΔT_1=T_hotin-T_coldout
     ΔT_2=T_hotout-T_coldin
     ΔT_log=(ΔT_1-ΔT_2)/np.log((ΔT_1)/(ΔT_2))
-    
+
     return ΔT_log
 
 
 LBE_V = 1 #m/s
-max_h2oV = 3 #m/s
+max_h2oV = 5 #m/s
 
+#w_MFR = MFR(rho_cold, last['A_water'], 5)
 last['H2O_V'] = velocity(rho_cold, last['A_water'], w_MFR)
 last['MFR_Pb']= MFR(rho_hot, last['A_Pb'], LBE_V)#pd.DataFrame([MFR(rho_hot, Area_pb, LBE_V)], index=['LBE_mass_flow']).T
 #last = pd.concat([last, H2O_V, MFR], axis = 1).rename(columns={0:'W_velocity'})
@@ -146,6 +143,7 @@ last['T_cout'] = ((last['C_LBE']/last['C_w'])*(T_hin-T_hout)+T_cin)
 last['LMTD'] = T_Log(T_hin, T_hout, T_cin, last['T_cout'])
 last['Q_hot'] = (last['C_LBE']*(T_hin - T_hout))
 last = last[last['Q_hot'] < 105000][last['Q_hot']>90000]
+last = last.reset_index(drop=True)
 
 
 #Reynolds number
@@ -192,33 +190,22 @@ QLMTD_max = max(last['one_M'])
 Min=[]
 Max= []
 Eff = []
-last['C_min'] = last['C_LBE']<last['C_w']
 
-#if last['C_min'] is True:
-    
-'''
-for h in last['C_LBE']:
-    if h < last['C_w']:
-        C_min = h
-        C_max = last['C_w']
-        e = ((T_hin-T_hout)/(T_hin-T_cin))     
-        
+
+last['C_min'] = last['C_LBE'].where(last['C_LBE']<last['C_w'], last['C_w'])
+last['C_max'] = last['C_LBE'].where(last['C_LBE']>last['C_w'], last['C_w'])
+
+
+for index, row in last.iterrows():
+    if row['C_min'] == row['C_LBE']:
+        e = ((T_hin-T_hout)/(T_hin-T_cin))
     else:
-        C_min = last['C_w']
-        C_max = h
-        e = (last['T_cout']-T_cin)/(T_hin-T_cin)
+        e = (row['T_cout']-T_cin)/(T_hin-T_cin)
     Eff.append(e)
-    Min.append(C_min)
-    Max.append(C_max)
-    
-last['C_min'] = pd.DataFrame(np.concatenate([Min]))
-last['C_max'] = pd.DataFrame(np.concatenate([Max]))
 last['e'] = pd.DataFrame(np.concatenate([Eff]))
 
+last['C_ratio'] = last['C_min']/last['C_max']
 
-  
-C_ratio = C_min/C_max
-    
 #values for e-ntu
 data_calor = pd.DataFrame(np.array([[0, 0, 0, 0, 0, 0], 
      [0.25, 0.221, 0.216, 0.21, 0.206, 0.205],
@@ -244,18 +231,19 @@ index_ubend = [0.0, 0.25, 0.5, 0.75, 1.00]
 #NTU calculations
 
 NTU =[]
-for ti, tu in zip(C_ratio[0], e[0]):
-    
+for ti, tu in zip(last['C_ratio'], last['e']):
+
     NTU.append(tube_geometry.interp_NTU(tu, ti, data_calor, index_calor))
-NTU_e = pd.DataFrame(np.concatenate([NTU]))
+last['NTU_e'] = pd.DataFrame(np.concatenate([NTU]))
 
-Ac_NTU = (NTU_e*C_min)/pd.DataFrame(last['U']).rename(columns = {'U':0})
+last['Ac_NTU'] = (last['NTU_e']*last['C_min'])/last['U']
+last['Lc_NTU'] = last['Ac_NTU']/(math.pi*last['Dc'])
 
-one_M_NTU=((1*last['Dc']*math.pi)*last['U'])/C_min[0]
 
-Lc_NTU = Ac_NTU[0]/(math.pi*last['Dc'])
-print(Lc_NTU)
-print(Lc_LMTD)
+
+#one meter calcs
+'''
+last['one_M_NTU']=((1*last['Dc']*math.pi)*last['U'])/last['C_min']
 e_calc = []
 for tie, tue in zip(C_ratio[0], one_M_NTU):
     e_calc.append(tube_geometry.interp_e(tue, tie, data_calor, index_calor))
@@ -264,27 +252,27 @@ e_calc_new = pd.DataFrame(np.concatenate([e_calc]))
 Q_NTU_one = e_calc_new*C_min*(T_hin-last['T_cout'])#.rename(columns ={0:'Q_NTU'})
 Q_NTU_one = Q_NTU_one.rename(columns = {0:'Q_NTU'})
 QNTU_max = max(Q_NTU_one['Q_NTU'])
+'''
 
-
-v_w = 1.00177E-6 #m^3 / g at 20 C
-#pressure loss early of water side
-P = ((((Rey_w*DV_cold)/last['Dh_w'])**2)/(2*9.81))*v_w*(0.046/Rey_w**0.2)*(Lc_LMTD/(last['Dh_w']/4))
-HL_w = (0.046/Rey_w.reset_index(drop=True)**0.2)*(Lc_LMTD/last['Dh_w'].reset_index(drop=True))*((last['W_velocity'].reset_index(drop=True)**2)/(2*9.81))
-HL_LBE = (0.046/(Rey_LBE.reset_index(drop=True)**0.2))*(Lc_LMTD/last['ID_Pb'].reset_index(drop=True))*((1**2)/(2*9.81))
-
+#P = ((((Rey_w*DV_cold)/last['Dh_w'])**2)/(2*9.81))*v_w*(0.046/(Rey_w**0.2))*(last['Lc_LMTD']/(last['Dh_w']/4))
+last['P_water'] = (0.046/(Rey_w**0.2))*(last['Lc_LMTD']/(last['Dh_w']))*((rho_cold*(last['H2O_V']**2))/2)
+last['HL_w'] = (0.046/(Rey_w**0.2))*(last['Lc_LMTD']/last['Dh_w'])*((last['H2O_V']**2)/(2*9.81))
+last['HL_LBE'] = (0.046/(Rey_LBE**0.2))*(last['Lc_LMTD']/last['ID_Pb'])*((1**2)/(2*9.81))
+last['P_LBE'] = (0.046/(Rey_LBE**0.2))*(last['Lc_LMTD']/(last['ID_Pb']))*((rho_hot*(LBE_V**2))/2)
+'''
 HL_oneM = (0.046/(Rey_LBE.reset_index(drop=True)**0.2))*(1/last['ID_Pb'].reset_index(drop=True))*((1**2)/(2*9.81))
 HL_oneM_w = (0.046/Rey_w.reset_index(drop=True)**0.2)*(1/last['Dh_w'].reset_index(drop=True))*((last['W_velocity'].reset_index(drop=True)**2)/(2*9.81))
+'''
+last['Q_real'] = last['Ac_LMTD']*last['LMTD']*last['U']
 
-Q_real = (Ac_LMTD)*LMTD*U1
-additions = pd.concat([last.reset_index(drop=True), Lc_LMTD, HL_LBE, HL_w, Lc_NTU], axis=1).rename(columns=
-                                                                                                         {0:'L_LMTD', 1:'Head_loss_LBE',
-                                                                                                       2:'Head_loss_w', 3:'L NTU'})
 
-lengths_and_dia = pd.concat([additions, Q_real], axis =1).rename(columns = {0:'Q_real'})
-lengths_and_dia = lengths_and_dia[lengths_and_dia.Q_real >= 90000][lengths_and_dia.Head_loss_w < 9][lengths_and_dia.W_velocity < 1.5]
+last = last[last['HL_LBE'] < 9][last['H2O_V'] < 5][last['A_water']<0.0005]
+last = last[last['P_water'] == min(last['P_water'])]
+
+print(last['Lc_NTU'])
+print(last['Lc_LMTD'])
+'''
 lengths_and_dia = lengths_and_dia[lengths_and_dia.L_LMTD == min(lengths_and_dia['L_LMTD'])]
-
-
 onemeter = pd.concat([last.reset_index(drop=True), one_M, Q_NTU_one, HL_oneM, HL_oneM_w], axis = 1).rename(columns=
                                                                                       {1:'Head_loss_w'})
 onemeter = onemeter[onemeter.Head_loss_w < 9][onemeter.LBE_mass_flow < 25]
@@ -292,19 +280,13 @@ onemeter = onemeter[onemeter.Q_NTU == max(onemeter['Q_NTU'])]
 #onemeter = onemeter[2003:2004] 
 lengths_and_dia.to_csv(r'original_HX.csv')
 onemeter.to_csv(r'onemeter.csv')
-
-
 #for U-tube calculations
 R = (T_cin - T_cout)/(T_hout - T_hin)
 S = (T_hout- T_hin)/(T_cin - T_hin)
 Fg = (((R**2 + 1)**0.5)*np.log((1-S)/(1-R*S)))/((R-1)*np.log(2-S*(R+1-(R**2+1)**0.5)/(2-S*(R+1+np.sqrt(R**2+1)))))
-
-
 U_Ubend=pd.DataFrame(1/(1/h_hot +last['T1']/k_316 +1/h_cold))
 U_Ac_LMTD = Q_hot.reset_index(drop=True)/(U_Ubend.reset_index(drop=True)*LMTD*Fg.reset_index(drop=True))
 U_Lc_LMTD = U_Ac_LMTD[0]/(math.pi*Dc['Dc'])
 Ubend = pd.concat([last.reset_index(drop=True), U_Ac_LMTD, U_Lc_LMTD], axis =1).rename(columns = {0:'Q_U', 1:'Ac_U', 2:'L_U'})
 Ubend = U_Ac_LMTD*U_Ubend.reset_index(drop=True)*LMTD*Fg.reset_index(drop=True)
 '''
-
-
