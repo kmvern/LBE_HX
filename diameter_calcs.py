@@ -116,6 +116,7 @@ Final = pd.concat([ID_info, gap_calc, OD_lbe, Pb_info, name_pb], axis = 1)
 Final = Final[Final.GasGap >= 0.0002]
 Final = Final[Final.GasGap <= 0.00026]
 
+<<<<<<< Updated upstream
 Total = pd.DataFrame([OD_name+pipe_name, OD_all+pipe_OD, tube_ID+pipe_ID, gauge_name + pipe_name],
                      index =  ['Name', 'Outer', 'Inner', 'Gauge']).T
  
@@ -150,6 +151,16 @@ for H2O_ID, w_name in zip(Total['Inner'], Total['Name']):
 h2o = pd.DataFrame([np.concatenate(W_gap), np.concatenate(H2O_name), np.concatenate(H2O_d)], index = ['T_w', 'W name', 'ID_w']).T
  
 last = pd.concat([h2o, pd.concat(combo, ignore_index=True)], axis = 1)
+=======
+
+last = tube_geometry.water_dia(Total, Final)
+
+
+#This is the final collection of the diameters and velocity
+last = last.loc[last['ID_w']> last['OD_gas']]
+last = last.loc[last['ID_Pb']>0]
+last = last.loc[last['ID_w']>0]
+>>>>>>> Stashed changes
 
 last = last.loc[last['ID_w']> last['OD_gas']]
 #last = last.loc[last['ID_Pb']>0.04]
@@ -172,6 +183,7 @@ areas = (pd.concat([T_1, T_2, Area_pb, A_water, Dc, Dh_w], axis=1)).rename(colum
 last = pd.concat([last, areas], axis = 1)
 
 
+<<<<<<< Updated upstream
 def delta_T(MFR, T_hout, Q_required, T_roomtemp, delta_Tcold):
     cp_hot = 164.8-3.94E-2*T_hout+1.25E-5*T_hout**2-4.56E5*T_hout**-2
     delta_Thot = Q_required/(cp_hot*MFR)
@@ -198,6 +210,8 @@ def thermo_prop(T):
 
 #dia = pd.concat([last, Dh_pb], axis =1)
 
+=======
+>>>>>>> Stashed changes
 #find delta T
 LBE_MFR = 26.7 #kg/s
 T_hout = 200+273 #K
@@ -230,7 +244,7 @@ def MFR(density, area, velocity):
 def velocity(density, AWater, mfr):
     velocity = mfr/(density*AWater)
     return velocity
-def LMTD(T_hotin, T_hotout, T_coldin, T_coldout):
+def T_Log(T_hotin, T_hotout, T_coldin, T_coldout):
     ΔT_1=T_hotin-T_coldout
     ΔT_2=T_hotout-T_coldin
     ΔT_log=(ΔT_1-ΔT_2)/np.log((ΔT_1)/(ΔT_2))
@@ -240,6 +254,7 @@ def LMTD(T_hotin, T_hotout, T_coldin, T_coldout):
 
 
 LBE_V = 1 #m/s
+<<<<<<< Updated upstream
 max_h2oV = 3 #m/s
 H2O_V = velocity(rho_cold, A_water, w_MFR)
 MFR= MFR(rho_hot, Area_pb, LBE_V)
@@ -254,11 +269,30 @@ C_w = cp_cold*w_MFR
 T_cout = (C_LBE/C_w)*(T_hin-T_hout)+T_cin
 Q_hot = C_LBE*(T_hin - T_hout)
 Q_cold = C_w*(T_cout - T_cin)
+=======
+max_h2oV = 5 #m/s
+
+#w_MFR = MFR(rho_cold, last['A_water'], 5)
+last['H2O_V'] = velocity(rho_cold, last['A_water'], w_MFR)
+last['MFR_Pb']= MFR(rho_hot, last['A_Pb'], LBE_V)#pd.DataFrame([MFR(rho_hot, Area_pb, LBE_V)], index=['LBE_mass_flow']).T
+#last = pd.concat([last, H2O_V, MFR], axis = 1).rename(columns={0:'W_velocity'})
+
+#heat capacity 
+last['C_LBE'] = cp_hot*last['MFR_Pb']#.rename(columns={'LBE_mass_flow':'CpLBE'})
+last['C_w'] = cp_cold*w_MFR
+
+#Calculated cold out temp and ideal Q    
+last['T_cout'] = ((last['C_LBE']/last['C_w'])*(T_hin-T_hout)+T_cin)
+last['LMTD'] = T_Log(T_hin, T_hout, T_cin, last['T_cout'])
+last['Q_hot'] = (last['C_LBE']*(T_hin - T_hout))
+last = last[last['Q_hot'] < 105000][last['Q_hot']>90000]
+last = last.reset_index(drop=True)
+>>>>>>> Stashed changes
 
 
 #Reynolds number
 Rey_LBE = LBE_V*(last['ID_Pb']/KV_hot)
-Rey_w = last['W_velocity']*(last['Dh_w']/KV_cold)
+Rey_w = last['H2O_V']*(last['Dh_w']/KV_cold)
 
 #Prandtl number 
 Pr_LBE = cp_hot*DV_hot/k_hot
@@ -279,6 +313,7 @@ k_316 = 15
 k_He = 0.189
 k_Ar = 0.0335 
 
+<<<<<<< Updated upstream
 U=1/(1/h_hot +last['T1']/k_316 +last['GasGap']/k_He +last['T2']/k_316 +1/h_cold)
 #U = pd.DataFrame(U)
 #LMTD method
@@ -289,6 +324,18 @@ Ac_LMTD = Q_hot/(U*LMTD)
 Lc_LMTD = Ac_LMTD/(math.pi*last['Dc'])
 #C_w = rho_cold*A_water*H2O_V*cp_cold
 one_M = max((last['Dc']*math.pi)*U*LMTD)
+=======
+last['U'] = 1/(1/h_hot +last['T1']/k_316 +last['GasGap']/k_He +last['T2']/k_316 +1/h_cold)
+
+#LMTD method
+
+last['Ac_LMTD'] = last['Q_hot']/(last['U']*last['LMTD'])
+last['Lc_LMTD'] = last['Ac_LMTD']/(math.pi*last['Dc'])
+#C_w = rho_cold*A_water*H2O_V*cp_cold
+
+
+
+>>>>>>> Stashed changes
 
 #e-NTU method
 
@@ -298,6 +345,7 @@ Max= []
 Eff = []
 
 
+<<<<<<< Updated upstream
 for h in C_LBE:
     if h < C_w:
         C_min = h
@@ -320,6 +368,44 @@ e = pd.DataFrame(np.concatenate([Eff]))
   
 C_ratio = C_min/C_max
     
+=======
+last['C_min'] = last['C_LBE'].where(last['C_LBE']<last['C_w'], last['C_w'])
+last['C_max'] = last['C_LBE'].where(last['C_LBE']>last['C_w'], last['C_w'])
+
+    
+for index, row in last.iterrows():
+    if row['C_min'] == row['C_LBE']:
+        e = ((T_hin-T_hout)/(T_hin-T_cin))
+    else:
+        e = (row['T_cout']-T_cin)/(T_hin-T_cin)
+    Eff.append(e)
+last['e'] = pd.DataFrame(np.concatenate([Eff]))
+  
+last['C_ratio'] = last['C_min']/last['C_max']
+
+#values for e-ntu
+data_calor = pd.DataFrame(np.array([[0, 0, 0, 0, 0, 0], 
+     [0.25, 0.221, 0.216, 0.21, 0.206, 0.205],
+     [0.5, 0.393, 0.378, 0.362, 0.35, 0.348],
+     [0.75, 0.528, 0.502, 0.477, 0.457, 0.452],
+     [1, 0.632, 0.598, 0.565, 0.538, 0.532],
+     [1.25, 0.713, 0.675, 0.635, 0.603, 0.595],
+     [1.5, 0.777, 0.735, 0.691, 0.655, 0.645]]),
+    index = [0, 0.25, 0.5, 0.75, 1, 1.25,
+    1.5], columns = ['NTU', 0, 0.25, 0.5, 0.7, 0.75])
+index_calor = [0, 0.25, 0.5, 0.7, 0.75]
+
+data_Ubend = pd.DataFrame(np.array([[0, 0, 0, 0, 0, 0], 
+     [0.25, 0.221, 0.215, 0.209, 0.204, 0.198],
+     [0.5, 0.393, 0.375, 0.357, 0.340, 0.324],
+     [0.75, 0.528, 0.494, 0.463, 0.434, 0.407],
+     [1.00, 0.632, 0.584, 0.540, 0.500, 0.463],
+     [1.25, 0.714, 0.652, 0.597, 0.546, 0.500],
+     [1.5, 0.777, 0.705, 0.639, 0.579, 0.526]]),
+    index = [0.0, 0.25, 0.5, 0.75, 1, 1.25,
+    1.5], columns = ['NTU', 0.0, 0.25, 0.5, 0.75, 1.00])
+index_ubend = [0.0, 0.25, 0.5, 0.75, 1.00]
+>>>>>>> Stashed changes
 #NTU calculations
 def interp_NTU(e_new, C_new):
     data = pd.DataFrame(np.array([[0, 0, 0, 0, 0, 0], 
@@ -333,6 +419,7 @@ def interp_NTU(e_new, C_new):
         1.5], columns = ['NTU', 0, 0.25, 0.5, 0.7, 0.75])
     index = [0, 0.25, 0.5, 0.7, 0.75]
 
+<<<<<<< Updated upstream
     
     lower_c = max([t for t in index if t < C_new])
 
@@ -362,6 +449,50 @@ def interp_NTU(e_new, C_new):
     e = [e_new_low, e_new_high]
     NTU = np.interp(e_new, e, x3)
 
+=======
+NTU =[]
+for ti, tu in zip(last['C_ratio'], last['e']):
+    
+    NTU.append(tube_geometry.interp_NTU(tu, ti, data_calor, index_calor))
+last['NTU_e'] = pd.DataFrame(np.concatenate([NTU]))
+
+last['Ac_NTU'] = (last['NTU_e']*last['C_min'])/last['U']
+last['Lc_NTU'] = last['Ac_NTU']/(math.pi*last['Dc'])
+
+#one meter calcs
+
+last['one_M'] = ((1*last['Dc']*math.pi)*last['U']*last['LMTD'])
+QLMTD_max = max(last['one_M'])
+
+one_M_NTU=((1*last['Dc']*math.pi)*last['U'])/last['C_min']
+onem = pd.concat([last, one_M_NTU], axis = 1).rename(columns = {0:'one_M_NTU'})
+'''
+e_calc = []
+for tie, tue in zip(last['C_ratio'], last['one_M_NTU']):
+    e_calc.append(tube_geometry.interp_e(tue, tie, data_calor, index_calor))
+    
+last['e_calc_new'] = pd.DataFrame(np.concatenate([e_calc]))
+last['Q_NTU_one'] = last['e_calc_new']*last['C_min']*(T_hin-last['T_cout'])
+QNTU_max = max(last['Q_NTU_one'])
+
+#pressure loss early of water side
+last['P_water'] = (0.046/(Rey_w**0.2))*(last['Lc_LMTD']/(last['Dh_w']))*((rho_cold*(last['H2O_V']**2))/2)
+last['HL_w'] = (0.046/(Rey_w**0.2))*(last['Lc_LMTD']/last['Dh_w'])*((last['H2O_V']**2)/(2*9.81))
+last['HL_LBE'] = (0.046/(Rey_LBE**0.2))*(last['Lc_LMTD']/last['ID_Pb'])*((1**2)/(2*9.81))
+last['P_LBE'] = (0.046/(Rey_LBE**0.2))*(last['Lc_LMTD']/(last['ID_Pb']))*((rho_hot*(LBE_V**2))/2)
+
+last['HL_oneM'] = (0.046/(Rey_LBE**0.2))*(1/last['ID_Pb'])*((1**2)/(2*9.81))
+last['HL_oneM_w'] = (0.046/Rey_w**0.2)*(1/last['Dh_w'])*((last['H2O_V']**2)/(2*9.81))
+
+last['Q_real'] = last['Ac_LMTD']*last['LMTD']*last['U']
+
+
+last = last[last['HL_LBE'] < 9][last['H2O_V'] < 5][last['A_water']<0.0005]
+#last = last[last['P_water'] == min(last['P_water'])]
+
+print(last['Lc_NTU'])
+print(last['Lc_LMTD'])
+>>>>>>> Stashed changes
 
         
     return NTU
@@ -392,3 +523,4 @@ U_Ac_LMTD = Q_hot/(U_Ubend*LMTD*Fg)
 U_Lc_LMTD = U_Ac_LMTD/(math.pi*last['Dc'])
 
 
+'''
