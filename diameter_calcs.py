@@ -245,7 +245,7 @@ for tie, tue in zip(last['C_ratio'], one_meter['one_M_NTU']):
     e_calc.append(tube_geometry.interp_e(tue, tie, data_calor, index_calor))
     
 one_meter['e_calc_new'] = pd.DataFrame(np.concatenate([e_calc]))
-one_meter['Q_NTU_one'] = one_meter['e_calc_new']*last['C_min']*(T_hin-last['T_cout'])
+one_meter['Q_NTU_one'] = one_meter['e_calc_new']*last['C_min']*(T_hin-T_cin)
 QNTU_max = max(one_meter['Q_NTU_one'])
 
 #pressure loss early of water side
@@ -263,4 +263,8 @@ print(last['Lc_LMTD'])
 
 one_meter = one_meter[one_meter['HL_oneM'] < 9][one_meter['H2O_V'] < 5][one_meter['A_water']<0.0005]
 last.to_csv(r'original_HX.csv')
+
+one_meter['t_cout'] = (one_meter['Q_NTU_one']/last['C_max']) + T_cin
+one_meter['t_hout'] = T_hin - (one_meter['Q_NTU_one']/last['C_min'])
+
 one_meter.to_csv(r'onemeter.csv')

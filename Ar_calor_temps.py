@@ -36,14 +36,19 @@ length = design['Lc_LMTD']
 C_min = design['C_min']
 Dc = design['Dc']
 C_ratio = design['C_ratio']
+area = design['Ac_LMTD']
+gap = design['GasGap']
+C_max = design['C_max']
+
 
 
 #temperatures
 T_hout = 200+273 #K
 T_roomtemp = 20 #C
-Q = design['Q_real']
+#Q = design['Q_real']
 delta_Tcold = 10 #K
-
+T_hin = 498
+T_cin = 20+273
 
 #heat transfer W/m^2 K
 h_Pb = 7302.596466
@@ -54,9 +59,23 @@ k_316 = 15
 k_He = 0.189
 k_Ar = 0.0335
 
+
+
 T_1, T_2, A_pb, A_water, Dc, Dh_w = tube_geometry.area_calcs(ID_pb, OD_pb, ID_gas, OD_gas, ID_w)
 
-delta_Thot, T_hin, T_cin, T_cout = tube_geometry.delta_T(MFR, T_hout, Q, T_roomtemp, delta_Tcold)
+
+U = 1/(1/h_Pb +T_1/k_316 +gap/k_Ar +T_2/k_316 +1/h_water)
+
+NTU = ((area)*(U))/C_min
+e = (1-math.exp(-NTU*(1-C_ratio)))/(1-C_ratio*math.exp(-NTU*(1-C_ratio)))
+Q = C_min*(T_hin - T_cin)*e
+
+#delta_Thot, T_hin, T_cin, T_cout = tube_geometry.delta_T(MFR, T_hout, Q, T_roomtemp, delta_Tcold)
+
+
+T_cout = (Q/C_max)+T_cin
+T_hout = T_hin - (Q/C_min)
+
 T_max = T_hin
 T_min = T_cout
 
@@ -96,10 +115,10 @@ R_w_pipe = pipe_resist(ID_w, OD_w, k_316)
 
 R_total = Pb_conv + H2O_conv + R_Pb_pipe + R_gas + R_gas_pipe #+ R_w_pipe
 
-NTU = ((math.pi*length*Dc)*(1/R_total))/C_min
-e = NTU/((NTU/1-math.exp(-NTU))+(C_ratio*NTU)/1-)
-
 Q_pipe = (T_max - T_min)/R_total #Watts/m
+
+
+
 
 def delta_t(OD, ID, k, T_hin, Q_pipe):
     data = []
@@ -138,7 +157,7 @@ H2O_DT = Q_pipe*H2O_conv
 delta_water = pd.DataFrame(np.linspace(out_tmp3, (out_tmp3-H2O_DT), num =10))
 dia_water = pd.DataFrame(np.linspace(float(OD_gas), float(ID_w), num =10))
 
-print(T_max, out_tmp1, out_tmp2, out_tmp3, out_tmp3-H2O_DT)
+print(T_max, T_max - max_PbID, out_tmp1, out_tmp2, out_tmp3, out_tmp3-H2O_DT)
 
 temp_change = pd.concat([delta_Pb, delta_LBE_pipe, delta_gas, delta_gas_pipe, delta_water]).reset_index(drop=True)
 distance = pd.concat([dia_Pb/2, dia_pb_pipe, dia_gas, dia_gp, dia_water/2]).reset_index(drop = True)
@@ -152,8 +171,8 @@ plt.axvline(float(ID_gas)/2, 0, 500, label = 'ID_gas', color = 'r', linestyle = 
 plt.axvline(float(OD_gas)/2, 0, 500, label = 'OD_gas', color = 'y', linestyle = '--', linewidth = 1)
 plt.axvline(float(ID_w)/2, 0, 500, label = 'ID_w', color = 'c', linestyle = '--', linewidth = 1)
 plt.legend()
-plt.axis([0.025,0.039, 300, 500])
-plt.title('Radial temperature profile (He gap)')
+plt.axis([0.0,0.039, 280, 500])
+plt.title('Radial temperature profile (Ar gap)')
 pd.DataFrame([temp_change[0], distance[0]]).T
 
 
