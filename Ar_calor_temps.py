@@ -1,6 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
+Created on Thu Aug 27 15:32:46 2020
+
+@author: kelleyverner
+"""
+
+
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
 Created on Wed Aug 19 16:41:02 2020
 
 @author: kelleyverner
@@ -24,6 +33,10 @@ ID_w = design['ID_w']
 OD_w = design['ID_w']-2*design['T_w']
 MFR = design['MFR_Pb']
 length = design['Lc_LMTD']
+C_min = design['C_min']
+Dc = design['Dc']
+C_ratio = design['C_ratio']
+
 
 #temperatures
 T_hout = 200+273 #K
@@ -44,19 +57,22 @@ k_Ar = 0.0335
 T_1, T_2, A_pb, A_water, Dc, Dh_w = tube_geometry.area_calcs(ID_pb, OD_pb, ID_gas, OD_gas, ID_w)
 
 delta_Thot, T_hin, T_cin, T_cout = tube_geometry.delta_T(MFR, T_hout, Q, T_roomtemp, delta_Tcold)
+T_max = T_hin
+T_min = T_cout
 
-def pipe_resist(ID, OD, k, length):
+
+def pipe_resist(ID, OD, k):
     ro = OD/2
     ri = ID/2
-    A_heat = 2*math.pi*k*length
+    A_heat = 2*math.pi*k
     
     R_pipe = (np.log(ro/ri))/A_heat
     
     return R_pipe
     
-def convec_resist(h, length, diameter):
+def convec_resist(h, diameter):
     r = diameter/2
-    Area = 2*math.pi*r*length
+    Area = 2*math.pi*r
     
     R_conv = 1/(h*Area)
     
@@ -65,37 +81,32 @@ def convec_resist(h, length, diameter):
     
 
 #convective resistances
-Pb_conv = convec_resist(h_Pb, length, ID_pb)
+Pb_conv = convec_resist(h_Pb, ID_pb)
 print(float(Pb_conv), 'K/W')
-H2O_conv = convec_resist(h_water, length, OD_gas)
+H2O_conv = convec_resist(h_water, OD_gas)
 print(float(H2O_conv), 'K/W')
 #Outer_conv = 
 #pipe/tube resistances K/W
 
-R_Pb_pipe = pipe_resist(ID_pb, OD_pb, k_316, length)
-R_gas = pipe_resist(OD_pb, ID_gas, k_He, length)
-R_gas_pipe = pipe_resist(ID_gas, OD_gas, k_316, length)
-R_w_pipe = pipe_resist(ID_w, OD_w, k_316, length)
+R_Pb_pipe = pipe_resist(ID_pb, OD_pb, k_316)
+R_gas = pipe_resist(OD_pb, ID_gas, k_Ar)
+R_gas_pipe = pipe_resist(ID_gas, OD_gas, k_316)
+R_w_pipe = pipe_resist(ID_w, OD_w, k_316)
 
 
-R_total = Pb_conv + H2O_conv + R_Pb_pipe + R_gas + R_gas_pipe# + R_w_pipe
+R_total = Pb_conv + H2O_conv + R_Pb_pipe + R_gas + R_gas_pipe #+ R_w_pipe
 
-Q_pipe = (T_hin - T_cout)/R_total #Watts
-U = 1/R_total
-print(U)
+NTU = ((math.pi*length*Dc)*(1/R_total))/C_min
+e = NTU/((NTU/1-math.exp(-NTU))+(C_ratio*NTU)/1-)
 
-#temperatures across the pipes 
-Pb_temp = Q_pipe*R_Pb_pipe
-gas_DT = Q_pipe*R_gas
-gas_pipe_DT = Q_pipe*R_gas_pipe
-H2O_DT = Q_pipe*H2O_conv
+Q_pipe = (T_max - T_min)/R_total #Watts/m
 
-def delta_t(OD, ID, k, length, T_hin, Q_pipe):
+def delta_t(OD, ID, k, T_hin, Q_pipe):
     data = []
     d = []
     num = float(OD-ID)/5
     for i in np.linspace(float(ID), float(OD), num=10):
-        R = pipe_resist(float(ID), i, k, length)
+        R = pipe_resist(float(ID), i, k)
         delta = T_hin - (Q_pipe*R)
         data.append(delta)
         d.append(i/2)
@@ -105,28 +116,32 @@ def delta_t(OD, ID, k, length, T_hin, Q_pipe):
     temp_stop = delta
     return data, d, temp_stop
 
-delta_LBE_pipe, dia_pb, out_tmp1 = delta_t(OD_pb, ID_pb, k_316, length, T_hin, Q_pipe)
-delta_gas, dia_gas, out_tmp2 = delta_t(ID_gas, OD_pb, k_He, length, out_tmp1, Q_pipe)
-delta_gas_pipe, dia_gp, out_tmp3 = delta_t(OD_gas, ID_gas, k_316, length, out_tmp2, Q_pipe)
-'''
-data = []
-d = []
+#max temp to Pb wall
+max_PbID = Q_pipe*Pb_conv
+delta_Pb = pd.DataFrame(np.linspace(T_max, (T_max-max_PbID), num =10))
+dia_Pb = pd.DataFrame(np.linspace(0, float(ID_pb), num =10))
 
-for i in np.linspace(float(OD_gas), float(ID_w), num=5):
+#Pb pipe
+Pb_temp = Q_pipe*R_Pb_pipe
+delta_LBE_pipe, dia_pb_pipe, out_tmp1 = delta_t(OD_pb, ID_pb, k_316,  T_max-max_PbID, Q_pipe)
 
-    R = convec_resist(h_water, length, i)
-    delta = out_tmp3 - (Q_pipe*R)
-    data.append(delta)
-    d.append(i)
-'''
-    
+#gas gap
+gas_DT = Q_pipe*R_gas
+delta_gas, dia_gas, out_tmp2 = delta_t(ID_gas, OD_pb, k_Ar,  out_tmp1, Q_pipe)
+
+#gas pipe 
+gas_pipe_DT = Q_pipe*R_gas_pipe
+delta_gas_pipe, dia_gp, out_tmp3 = delta_t(OD_gas, ID_gas, k_316,  out_tmp2, Q_pipe)
+
+#water inner temp to T_min
+H2O_DT = Q_pipe*H2O_conv
 delta_water = pd.DataFrame(np.linspace(out_tmp3, (out_tmp3-H2O_DT), num =10))
 dia_water = pd.DataFrame(np.linspace(float(OD_gas), float(ID_w), num =10))
 
+print(T_max, out_tmp1, out_tmp2, out_tmp3, out_tmp3-H2O_DT)
 
-
-temp_change = pd.concat([delta_LBE_pipe, delta_gas, delta_gas_pipe, delta_water]).reset_index(drop=True)
-distance = pd.concat([dia_pb, dia_gas, dia_gp, dia_water/2]).reset_index(drop = True)
+temp_change = pd.concat([delta_Pb, delta_LBE_pipe, delta_gas, delta_gas_pipe, delta_water]).reset_index(drop=True)
+distance = pd.concat([dia_Pb/2, dia_pb_pipe, dia_gas, dia_gp, dia_water/2]).reset_index(drop = True)
     
 plt.plot(distance[0],temp_change[0])
 plt.ylabel('Temperature (K)')
@@ -137,7 +152,8 @@ plt.axvline(float(ID_gas)/2, 0, 500, label = 'ID_gas', color = 'r', linestyle = 
 plt.axvline(float(OD_gas)/2, 0, 500, label = 'OD_gas', color = 'y', linestyle = '--', linewidth = 1)
 plt.axvline(float(ID_w)/2, 0, 500, label = 'ID_w', color = 'c', linestyle = '--', linewidth = 1)
 plt.legend()
-plt.axis([0.026,0.042, 300, 500])
-plt.title('Radial temperature profile (Ar gap)')
+plt.axis([0.025,0.039, 300, 500])
+plt.title('Radial temperature profile (He gap)')
 pd.DataFrame([temp_change[0], distance[0]]).T
+
 

@@ -157,15 +157,15 @@ Nu_LBE = 5 + 0.025*Pe_LBE**0.8
 Nu_w = 0.023 * (Rey_w**0.8)*(Pr_w**0.33)
 
 #heat transfer W/m^2 K) 
-h_hot = Nu_LBE*(k_hot/last['ID_Pb'])
-h_cold = Nu_w*(k_cold/last['Dh_w'])
+last['h_hot'] = Nu_LBE*(k_hot/last['ID_Pb'])
+last['h_cold'] = Nu_w*(k_cold/last['Dh_w'])
 
 #pipe thermal conductivities W/m K
 k_316 = 15 
 k_He = 0.189
 k_Ar = 0.0335 
 
-last['U'] = 1/(1/h_hot +last['T1']/k_316 +last['GasGap']/k_He +last['T2']/k_316 +1/h_cold)
+last['U'] = 1/(1/last['h_hot'] +last['T1']/k_316 +last['GasGap']/k_He +last['T2']/k_316 +1/last['h_cold'])
 
 #LMTD method
 
