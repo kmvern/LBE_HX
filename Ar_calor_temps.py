@@ -1,6 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
+Created on Thu Aug 27 15:32:46 2020
+
+@author: kelleyverner
+"""
+
+
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
 Created on Wed Aug 19 16:41:02 2020
 
 @author: kelleyverner
@@ -24,6 +33,10 @@ ID_w = design['ID_w']
 OD_w = design['ID_w']-2*design['T_w']
 MFR = design['MFR_Pb']
 length = design['Lc_LMTD']
+C_min = design['C_min']
+Dc = design['Dc']
+C_ratio = design['C_ratio']
+
 
 #temperatures
 T_hout = 200+273 #K
@@ -46,6 +59,8 @@ T_1, T_2, A_pb, A_water, Dc, Dh_w = tube_geometry.area_calcs(ID_pb, OD_pb, ID_ga
 delta_Thot, T_hin, T_cin, T_cout = tube_geometry.delta_T(MFR, T_hout, Q, T_roomtemp, delta_Tcold)
 T_max = T_hin
 T_min = T_cout
+
+
 def pipe_resist(ID, OD, k):
     ro = OD/2
     ri = ID/2
@@ -74,12 +89,15 @@ print(float(H2O_conv), 'K/W')
 #pipe/tube resistances K/W
 
 R_Pb_pipe = pipe_resist(ID_pb, OD_pb, k_316)
-R_gas = pipe_resist(OD_pb, ID_gas, k_He)
+R_gas = pipe_resist(OD_pb, ID_gas, k_Ar)
 R_gas_pipe = pipe_resist(ID_gas, OD_gas, k_316)
 R_w_pipe = pipe_resist(ID_w, OD_w, k_316)
 
 
 R_total = Pb_conv + H2O_conv + R_Pb_pipe + R_gas + R_gas_pipe #+ R_w_pipe
+
+NTU = ((math.pi*length*Dc)*(1/R_total))/C_min
+e = NTU/((NTU/1-math.exp(-NTU))+(C_ratio*NTU)/1-)
 
 Q_pipe = (T_max - T_min)/R_total #Watts/m
 
@@ -109,7 +127,7 @@ delta_LBE_pipe, dia_pb_pipe, out_tmp1 = delta_t(OD_pb, ID_pb, k_316,  T_max-max_
 
 #gas gap
 gas_DT = Q_pipe*R_gas
-delta_gas, dia_gas, out_tmp2 = delta_t(ID_gas, OD_pb, k_He,  out_tmp1, Q_pipe)
+delta_gas, dia_gas, out_tmp2 = delta_t(ID_gas, OD_pb, k_Ar,  out_tmp1, Q_pipe)
 
 #gas pipe 
 gas_pipe_DT = Q_pipe*R_gas_pipe
