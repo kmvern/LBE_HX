@@ -1,9 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Aug 18 13:12:08 2020
-@author: kelleyverner
-"""
 import pandas as pd
 import numpy as np
 import math
@@ -41,6 +35,7 @@ def inner_dia(tube_OD, tube_name, tube_thickness, gauge, pipe_name, pipe_ID, pip
                      index =  ['Name', 'Outer', 'Inner', 'Gauge']).T
     return Gas, LBE, Total
 
+#calculates all possible combinations of the gas gap 
 def gas_gap_calcs(Gas, LBE):
     gap = []
     name = []
@@ -68,6 +63,7 @@ def gas_gap_calcs(Gas, LBE):
     Final = pd.concat([ID_info, name_pb, OD_lbe, Pb_info, gap_calc], axis = 1)
     return Final 
 
+#calculates the area and dimentions of the gas gap, water, and LBE
 def area_calcs(ID_pb, OD_pb, ID_gas, OD_gas, ID_w):
     T_1 = (OD_pb - ID_pb)/2
     T_2 = (OD_gas - ID_gas)/2
@@ -78,6 +74,7 @@ def area_calcs(ID_pb, OD_pb, ID_gas, OD_gas, ID_w):
 
     return T_1, T_2, A_pb, A_water, Dc, Dh_w
 
+#calculates the water diameters and dimensions
 def water_dia(Total, Final):
     H2O_d = []
     W_gap = []
@@ -93,7 +90,7 @@ def water_dia(Total, Final):
         combo.append(Final)
 
     h2o = pd.DataFrame([np.concatenate(W_gap), np.concatenate(H2O_name), 
-                        np.concatenate(H2O_d)], index = ['T_w', 'W name', 'ID_w']).T
+                        np.concatenate(H2O_d)], index = ['Thick_w', 'W name', 'ID_w']).T
     last = pd.concat([h2o, pd.concat(combo, ignore_index=True)], axis = 1)
     return last
 
@@ -111,6 +108,7 @@ def delta_T(MFR, T_hout, Q_required, T_roomtemp, delta_Tcold):
 
     return delta_Thot, T_hin, T_cin, T_cout
 
+#calculates the LBE properties
 def thermo_prop(T):
     #calculations of thermophysical props
     #LBE
@@ -121,6 +119,7 @@ def thermo_prop(T):
     KV_hot = DV_hot/rho_hot
     return rho_hot, cp_hot, k_hot, DV_hot, KV_hot
 
+#interpolates the value of NTU from a given effectiveness
 def interp_NTU(e_new, C_new, data, index):    
     lower_c = max([t for t in index if t < C_new])
 
@@ -150,10 +149,9 @@ def interp_NTU(e_new, C_new, data, index):
     e = [e_new_low, e_new_high]
     NTU = np.interp(e_new, e, x3)
 
-
-
     return NTU
 
+#interpolates the effectiveness from a given NTU
 def interp_e(NTU_new, C_new, data, index):    
     lower_c = max([t for t in index if t < C_new])
 

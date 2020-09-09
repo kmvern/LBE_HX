@@ -77,9 +77,6 @@ areas = (pd.concat([T_1, T_2, Area_pb, A_water, Dc, Dh_w],
 last = pd.concat([last, areas], axis = 1)
 
 
-
-#dia = pd.concat([last, Dh_pb], axis =1)
-
 #find delta T
 LBE_MFR = 26.7 #kg/s
 T_hout = 200+273 #K
@@ -87,8 +84,6 @@ T_cin = 20 #C
 Q_req = 100E3 #W
 delta_Tcold = 10 #K
 delta_Thot, T_hin, T_cin, T_cout = tube_geometry.delta_T(LBE_MFR, T_hout, Q_req, T_cin, delta_Tcold)
-
-print('The required temperature decrease is approximatly', delta_Thot)
 
 T_avg = (T_hin + T_hout)/2
 
@@ -105,7 +100,6 @@ KV_cold = DV_cold/rho_cold
 #required water mass flow rate
 
 w_MFR = Q_req/(cp_cold*delta_Tcold)
-print('The required mass flow rate of water is ', w_MFR)
 
 def MFR(density, area, velocity):
     MFR = density*area*velocity 
@@ -120,18 +114,15 @@ def T_Log(T_hotin, T_hotout, T_coldin, T_coldout):
     
     return ΔT_log
 
-
-
 LBE_V = 1 #m/s
 max_h2oV = 5 #m/s
 
-#w_MFR = MFR(rho_cold, last['A_water'], 5)
+
 last['H2O_V'] = velocity(rho_cold, last['A_water'], w_MFR)
-last['MFR_Pb']= MFR(rho_hot, last['A_Pb'], LBE_V)#pd.DataFrame([MFR(rho_hot, Area_pb, LBE_V)], index=['LBE_mass_flow']).T
-#last = pd.concat([last, H2O_V, MFR], axis = 1).rename(columns={0:'W_velocity'})
+last['MFR_Pb']= MFR(rho_hot, last['A_Pb'], LBE_V)
 
 #heat capacity 
-last['C_LBE'] = cp_hot*last['MFR_Pb']#.rename(columns={'LBE_mass_flow':'CpLBE'})
+last['C_LBE'] = cp_hot*last['MFR_Pb']
 last['C_w'] = cp_cold*w_MFR
 
 #Calculated cold out temp and ideal Q    
@@ -218,6 +209,7 @@ data_Ubend = pd.DataFrame(np.array([[0, 0, 0, 0, 0, 0],
     index = [0.0, 0.25, 0.5, 0.75, 1, 1.25,
     1.5], columns = ['NTU', 0.0, 0.25, 0.5, 0.75, 1.00])
 index_ubend = [0.0, 0.25, 0.5, 0.75, 1.00]
+
 #NTU calculations
 
 NTU =[]
@@ -238,7 +230,6 @@ one_meter['one_M'] = ((1*last['Dc']*math.pi)*last['U']*last['LMTD'])
 QLMTD_max = max(one_meter['one_M'])
 
 one_meter['one_M_NTU']=((1*last['Dc']*math.pi)*last['U'])/last['C_min']
-#onem = pd.concat([last, one_M_NTU], axis = 1).rename(columns = {0:'one_M_NTU'})
 
 e_calc = []
 for tie, tue in zip(last['C_ratio'], one_meter['one_M_NTU']):
@@ -248,7 +239,7 @@ one_meter['e_calc_new'] = pd.DataFrame(np.concatenate([e_calc]))
 one_meter['Q_NTU_one'] = one_meter['e_calc_new']*last['C_min']*(T_hin-T_cin)
 QNTU_max = max(one_meter['Q_NTU_one'])
 
-#pressure loss early of water side
+#pressure losses and head loss
 last['P_water'] = (0.046/(Rey_w**0.2))*(last['Lc_LMTD']/(last['Dh_w']))*((rho_cold*(last['H2O_V']**2))/2)
 last['HL_w'] = (0.046/(Rey_w**0.2))*(last['Lc_LMTD']/last['Dh_w'])*((last['H2O_V']**2)/(2*9.81))
 last['HL_LBE'] = (0.046/(Rey_LBE**0.2))*(last['Lc_LMTD']/last['ID_Pb'])*((1**2)/(2*9.81))
@@ -257,14 +248,15 @@ one_meter['HL_oneM'] = (0.046/(Rey_LBE**0.2))*(1/last['ID_Pb'])*((1**2)/(2*9.81)
 one_meter['HL_oneM_w'] = (0.046/Rey_w**0.2)*(1/last['Dh_w'])*((last['H2O_V']**2)/(2*9.81))
 last['Q_real'] = last['Ac_LMTD']*last['LMTD']*last['U']
 last = last[last['HL_LBE'] < 9][last['H2O_V'] < 5][last['A_water']<0.0005]
-#last = last[last['P_water'] == min(last['P_water'])]
+
 print(last['Lc_NTU'])
 print(last['Lc_LMTD'])
 
 one_meter = one_meter[one_meter['HL_oneM'] < 9][one_meter['H2O_V'] < 5][one_meter['A_water']<0.0005]
-last.to_csv(r'original_HX.csv')
+last.to_csv(r'calorimeter_HX.csv')
 
 one_meter['t_cout'] = (one_meter['Q_NTU_one']/last['C_max']) + T_cin
 one_meter['t_hout'] = T_hin - (one_meter['Q_NTU_one']/last['C_min'])
 
 one_meter.to_csv(r'onemeter.csv')
+

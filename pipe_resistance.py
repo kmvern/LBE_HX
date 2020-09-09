@@ -23,7 +23,7 @@ OD_pb = design['OD_Pb']
 ID_gas = design['ID_gas']
 OD_gas = design['OD_gas']
 ID_w = design['ID_w']
-OD_w = design['ID_w']-2*design['T_w']
+OD_w = design['ID_w']-2*design['Thick_w']
 MFR = design['MFR_Pb']
 length = design['Lc_LMTD']
 
