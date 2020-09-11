@@ -1,9 +1,9 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Created on Tue Sep  1 11:30:10 2020
 
 @author: kelleyverner
+
+Radial temperature profile of the pressurized water jacket design. 
 """
 
 import tube_geometry
@@ -32,9 +32,6 @@ T_hout = 200+273 #K
 T_roomtemp = 20 #C
 Q = design['Q_real']
 delta_Tcold = 10 #K
-
-
-
 
 
 #pipe thermal conductivities W/m K

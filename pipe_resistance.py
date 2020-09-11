@@ -1,9 +1,5 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
-Created on Wed Aug 19 16:41:02 2020
+Radial temperature of a gas-gap calorimeter filled with helium. 
 
 @author: kelleyverner
 """
@@ -15,7 +11,7 @@ import matplotlib.pyplot as plt
 
 #Radial temperature profiles along calorimeter
 
-design = pd.read_csv('original_HX.csv')
+design = pd.read_csv('calorimeter_HX.csv')
 
 #geometry
 ID_pb = design['ID_Pb']
